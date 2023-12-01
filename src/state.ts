@@ -1,45 +1,95 @@
 import * as vscode from 'vscode';
 
+type RangeMap = Map<string, vscode.Range[]>; // filename -> ranges
+
 export class State {
-    // Will keep track of every lines that have been reviewed
-    // Files is a map of strings to a list of ranges
-    public files_to_ok: Map<string, vscode.Range[]> = new Map();
-    public files_to_warning: Map<string, vscode.Range[]> = new Map();
-    public files_to_danger: Map<string, vscode.Range[]> = new Map();
+
+    private files: { [key: string]: RangeMap } = {
+        ok: new Map(),
+        warning: new Map(),
+        danger: new Map()
+    };
 
     private parseJsonToRanges(json: any): vscode.Range[] {
-        const ranges: vscode.Range[] = [];
-        for (const range of json) {
-            ranges.push(new vscode.Range(range[0], range[1]));
-        }
-        return ranges;
+        return json.map((range: [number, number]) => new vscode.Range(range[0], 0, range[1], 0));
+    }
+
+    private rangeToJson(range: vscode.Range): [number, number] {
+        return [range.start.line, range.end.line];
     }
 
     public loadFromJson(json: any): void {
-        this.files_to_ok = new Map(Object.entries(json.files_to_ok).map(([k, v]) => [k, this.parseJsonToRanges(v)]));
-        this.files_to_warning = new Map(Object.entries(json.files_to_warning).map(([k, v]) => [k, this.parseJsonToRanges(v)]));
-        this.files_to_danger = new Map(Object.entries(json.files_to_danger).map(([k, v]) => [k, this.parseJsonToRanges(v)]));
+        for (const key of Object.keys(this.files)) {
+            this.files[key] = new Map(Object.entries(json[`files_to_${key}`]).map(([k, v]) => [k, this.parseJsonToRanges(v)]));
+        }
     }
 
     public toJson(): any {
-        const obj = {
-            files_to_ok: Object.fromEntries(this.files_to_ok),
-            files_to_warning: Object.fromEntries(this.files_to_warning),
-            files_to_danger: Object.fromEntries(this.files_to_danger),
-        };
+        const obj: any = {};
+        for (const key of Object.keys(this.files)) {
+            obj[`files_to_${key}`] = Object.fromEntries(Array.from(this.files[key].entries()).map(([k, v]) => [k, v.map(this.rangeToJson)]));
+        }
         return obj;
     }
 
-    public clear(): void {
-        this.files_to_ok.clear();
-        this.files_to_warning.clear();
-        this.files_to_danger.clear();
+    public clearAllFiles(): void {
+        for (const key of Object.keys(this.files)) {
+            this.files[key].clear();
+        }
     }
 
     public clearFile(filename: string): void {
-        this.files_to_ok.delete(filename);
-        this.files_to_warning.delete(filename);
-        this.files_to_danger.delete(filename);
+        for (const key of Object.keys(this.files)) {
+            this.files[key].delete(filename);
+        }
+    }
+
+    private removeSpecificRangeFromFile(type: 'ok' | 'warning' | 'danger', filename: string, range: vscode.Range): void {
+        const ranges = this.files[type].get(filename);
+        if (!ranges) {
+            return;
+        }
+
+        const newRanges = ranges.reduce((acc: vscode.Range[], current: vscode.Range) => {
+            // Check if outside -> we keep the current range
+            if (current.start.line > range.end.line || current.end.line < range.start.line) {
+                return acc.concat(current);
+            }
+
+            // We are intersecting
+            // Check if we are inside -> we don't keep the current range
+            if (current.start.line >= range.start.line && current.end.line <= range.end.line) {
+                return acc;
+            }
+
+            // Check if we include the range -> we split into two ranges
+            if (current.start.line < range.start.line && current.end.line > range.end.line) {
+                const upperRange = new vscode.Range(current.start.line, 0, range.start.line - 1, 0);
+                const lowerRange = new vscode.Range(range.end.line + 1, 0, current.end.line, 0);
+                return acc.concat(upperRange, lowerRange);
+            }
+
+            // We are partially inside
+            // Check if we are above -> we keep the current.start and range.start
+            if (current.start.line < range.start.line) {
+                return acc.concat(new vscode.Range(current.start.line, 0, range.start.line - 1, 0));
+            }
+            // We are below -> we keep the range.end and current.end
+            if (current.end.line > range.end.line) {
+                return acc.concat(new vscode.Range(range.end.line + 1, 0, current.end.line, 0));
+            }
+
+            // We should never reach this point
+            return acc;
+        }, []);
+
+        this.files[type].set(filename, newRanges);
+    }
+
+    public removeRangeFromAllTypesInFile(filename: string, range: vscode.Range): void {
+        for (const key of Object.keys(this.files)) {
+            this.removeSpecificRangeFromFile(key as 'ok' | 'warning' | 'danger', filename, range);
+        }
     }
 
     public tryMergeRanges(current: vscode.Range, against: vscode.Range): vscode.Range | undefined {
@@ -94,153 +144,23 @@ export class State {
         return ranges;
     }
 
-    public addOk(filename: string, range: vscode.Range): void {
-        let ranges: vscode.Range[] | undefined = this.files_to_ok.get(filename);
-        if (!ranges) {
-            ranges = [] as vscode.Range[];
-        }
-
+    public addRange(type: 'ok' | 'warning' | 'danger', filename: string, range: vscode.Range): void {
+        let ranges = this.files[type].get(filename) || [];
         ranges = this.addRangeToRanges(ranges, range);
-
-        this.files_to_ok.set(filename, ranges);
+        this.files[type].set(filename, ranges);
     }
 
-    public addWarning(filename: string, range: vscode.Range): void {
-        let ranges = this.files_to_warning.get(filename);
-        if (!ranges) {
-            ranges = [];
-        }
-
-        ranges = this.addRangeToRanges(ranges, range);
-
-        this.files_to_warning.set(filename, ranges);
+    public getRanges(type: 'ok' | 'warning' | 'danger', filename: string): vscode.Range[] {
+        return this.files[type].get(filename) || [];
     }
 
-    public tryMergeDeleteRanges(current: vscode.Range, against: vscode.Range): vscode.Range[] | undefined {
-        // Truncate the current range to the against range
-
-        // If current is inside against, delete the current range
-        if (current.start.line >= against.start.line && current.end.line <= against.end.line) {
-            return [];
-        }
-
-        // If against is inside current, return two ranges surrounding against
-        if (against.start.line >= current.start.line && against.end.line <= current.end.line) {
-            return [new vscode.Range(current.start.line, 0, against.start.line - 1, 0), new vscode.Range(against.end.line + 1, 0, current.end.line, 0)];
-        }
-
-        // If current is before against, return undefined
-        if (current.end.line < against.start.line) {
-            return undefined;
-        }
-        
-        // If current is after against, return undefined
-        if (current.start.line > against.end.line) {
-            return undefined;
-        }
-
-        // If current is above and partially inside against, return the lower bound
-        if (current.start.line <= against.start.line) {
-            return [new vscode.Range(current.start.line, 0, against.start.line - 1, 0)];
-        }
-
-        // If current is below and partially inside against, return the upper bound
-        if (current.end.line >= against.end.line) {
-            return [new vscode.Range(against.end.line + 1, 0, current.end.line, 0)];
-        }
-
-        return undefined;
-    }
-
-    public deleteOk(filename: string, range: vscode.Range): void {
-        let ranges = this.files_to_ok.get(filename);
-        if (!ranges) {
-            ranges = [];
-        }
-
-        // For each range, try to merge it with the range to delete
-        // If it merges, replace the range with the merged range
-        // If it deletes, remove the range
-        // If it does nothing, keep the range
-        const new_ranges: vscode.Range[] = [];
-        for (const current of ranges) {
-            const merged = this.tryMergeDeleteRanges(current, range);
-            if (merged) {
-                new_ranges.push(...merged);
-            } else {
-                new_ranges.push(current);
+    public changeFilename(oldFilename: string, newFilename: string): void {
+        for (const key of Object.keys(this.files)) {
+            const ranges = this.files[key as 'ok' | 'warning' | 'danger'].get(oldFilename);
+            if (ranges) {
+                this.files[key as 'ok' | 'warning' | 'danger'].delete(oldFilename);
+                this.files[key as 'ok' | 'warning' | 'danger'].set(newFilename, ranges);
             }
         }
-
-        this.files_to_ok.set(filename, new_ranges);
-    }
-
-    public deleteWarning(filename: string, range: vscode.Range): void {
-        let ranges = this.files_to_warning.get(filename);
-        if (!ranges) {
-            ranges = [];
-        }
-
-        // For each range, try to merge it with the range to delete
-        // If it merges, replace the range with the merged range
-        // If it deletes, remove the range
-        // If it does nothing, keep the range
-        const new_ranges: vscode.Range[] = [];
-        for (const current of ranges) {
-            const merged = this.tryMergeDeleteRanges(current, range);
-            if (merged) {
-                new_ranges.push(...merged);
-            } else {
-                new_ranges.push(current);
-            }
-        }
-
-        this.files_to_warning.set(filename, new_ranges);
-    }
-
-    public deleteDanger(filename: string, range: vscode.Range): void {
-        let ranges = this.files_to_danger.get(filename);
-        if (!ranges) {
-            ranges = [];
-        }
-
-        // For each range, try to merge it with the range to delete
-        // If it merges, replace the range with the merged range
-        // If it deletes, remove the range
-        // If it does nothing, keep the range
-        const new_ranges: vscode.Range[] = [];
-        for (const current of ranges) {
-            const merged = this.tryMergeDeleteRanges(current, range);
-            if (merged) {
-                new_ranges.push(...merged);
-            } else {
-                new_ranges.push(current);
-            }
-        }
-
-        this.files_to_danger.set(filename, new_ranges);
-    }
-
-    public addDanger(filename: string, range: vscode.Range): void {
-        let ranges = this.files_to_danger.get(filename);
-        if (!ranges) {
-            ranges = [];
-        }
-
-        ranges = this.addRangeToRanges(ranges, range);
-
-        this.files_to_danger.set(filename, ranges);
-    }
-
-    public getOk(filename: string): vscode.Range[] {
-        return this.files_to_ok.get(filename) || [];
-    }
-
-    public getWarning(filename: string): vscode.Range[] {
-        return this.files_to_warning.get(filename) || [];
-    }
-
-    public getDanger(filename: string): vscode.Range[] {
-        return this.files_to_danger.get(filename) || [];
     }
 }

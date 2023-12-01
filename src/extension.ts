@@ -29,9 +29,9 @@ export function activate(context: vscode.ExtensionContext) {
 		const greenDecorationType = config.decorationTypes.get('green') as vscode.TextEditorDecorationType;
 		const yellowDecorationType = config.decorationTypes.get('yellow') as vscode.TextEditorDecorationType;
 		const redDecorationType = config.decorationTypes.get('red') as vscode.TextEditorDecorationType;
-		const ranges_ok = state.files_to_ok.get(path);
-		const ranges_warning = state.files_to_warning.get(path);
-		const ranges_danger = state.files_to_danger.get(path);
+		const ranges_ok = state.getRanges("ok", path);
+		const ranges_warning = state.getRanges("warning", path);
+		const ranges_danger = state.getRanges("danger", path);
 		if (ranges_ok) {
 			activeEditor.setDecorations(greenDecorationType, ranges_ok);
 		} else {
@@ -64,9 +64,8 @@ export function activate(context: vscode.ExtensionContext) {
 		const firstLine = editor.selection.active;
 		const lastLine = editor.selection.anchor;
 		const textRange = new vscode.Range(firstLine, lastLine);
-		state.addOk(path, textRange);
-		state.deleteWarning(path, textRange);
-		state.deleteDanger(path, textRange);
+		state.removeRangeFromAllTypesInFile(path, textRange);
+		state.addRange("ok", path, textRange);
 		updateDecorations(editor);
 	});
 
@@ -82,9 +81,8 @@ export function activate(context: vscode.ExtensionContext) {
 		const firstLine = editor.selection.active;
 		const lastLine = editor.selection.anchor;
 		const textRange = new vscode.Range(firstLine, lastLine);
-		state.addWarning(path, textRange);
-		state.deleteOk(path, textRange);
-		state.deleteDanger(path, textRange);
+		state.removeRangeFromAllTypesInFile(path, textRange);
+		state.addRange("warning", path, textRange);
 		updateDecorations(editor);
 	});
 
@@ -100,9 +98,8 @@ export function activate(context: vscode.ExtensionContext) {
 		const firstLine = editor.selection.active;
 		const lastLine = editor.selection.anchor;
 		const textRange = new vscode.Range(firstLine, lastLine);
-		state.addDanger(path, textRange);
-		state.deleteOk(path, textRange);
-		state.deleteWarning(path, textRange);
+		state.removeRangeFromAllTypesInFile(path, textRange);
+		state.addRange("danger", path, textRange);
 		updateDecorations(editor);
 	});
 
@@ -118,9 +115,7 @@ export function activate(context: vscode.ExtensionContext) {
 		const firstLine = editor.selection.active;
 		const lastLine = editor.selection.anchor;
 		const textRange = new vscode.Range(firstLine, lastLine);
-		state.deleteOk(path, textRange);
-		state.deleteWarning(path, textRange);
-		state.deleteDanger(path, textRange);
+		state.removeRangeFromAllTypesInFile(path, textRange);
 		updateDecorations(editor);
 	});
 
@@ -147,26 +142,13 @@ export function activate(context: vscode.ExtensionContext) {
 			updateDecorations(editor);
 		}
 	}, null, context.subscriptions);
+
 	// If file name changes update key for markedEditors
 	vscode.workspace.onWillRenameFiles((event) => {
 		event.files.forEach((files) => {
 			const oldPath = files.oldUri.path.toString();
 			const newPath = files.newUri.path.toString();
-			const ranges_ok = state.files_to_ok.get(oldPath);
-			const ranges_warning = state.files_to_warning.get(oldPath);
-			const ranges_danger = state.files_to_danger.get(oldPath);
-			if (ranges_ok) {
-				state.files_to_ok.delete(oldPath);
-				state.files_to_ok.set(newPath, ranges_ok);
-			}
-			if (ranges_warning) {
-				state.files_to_warning.delete(oldPath);
-				state.files_to_warning.set(newPath, ranges_warning);
-			}
-			if (ranges_danger) {
-				state.files_to_danger.delete(oldPath);
-				state.files_to_danger.set(newPath, ranges_danger);
-			}
+			state.changeFilename(oldPath, newPath);
 		});
 	}, null, context.subscriptions);
 
