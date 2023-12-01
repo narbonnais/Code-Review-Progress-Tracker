@@ -33,15 +33,11 @@ export class State {
     }
 
     public clearAllFiles(): void {
-        for (const key of Object.keys(this.files)) {
-            this.files[key].clear();
-        }
+        Object.values(this.files).forEach(map => map.clear());
     }
 
     public clearFile(filename: string): void {
-        for (const key of Object.keys(this.files)) {
-            this.files[key].delete(filename);
-        }
+        Object.values(this.files).forEach(map => map.delete(filename));
     }
 
     private removeSpecificRangeFromFile(type: 'ok' | 'warning' | 'danger', filename: string, range: vscode.Range): void {
@@ -87,61 +83,14 @@ export class State {
     }
 
     public removeRangeFromAllTypesInFile(filename: string, range: vscode.Range): void {
-        for (const key of Object.keys(this.files)) {
-            this.removeSpecificRangeFromFile(key as 'ok' | 'warning' | 'danger', filename, range);
-        }
-    }
-
-    public tryMergeRanges(current: vscode.Range, against: vscode.Range): vscode.Range | undefined {
-        // Truncate the current range to the against range
-
-        // If current is inside against, return against
-        if (current.start.line >= against.start.line && current.end.line <= against.end.line) {
-            return against;
-        }
-
-        // If against is inside current, return current
-        if (against.start.line >= current.start.line && against.end.line <= current.end.line) {
-            return current;
-        }
-
-        // If current is before against, return undefined
-        if (current.end.line < against.start.line) {
-            return undefined;
-        }
-        
-        // If current is after against, return undefined
-        if (current.start.line > against.end.line) {
-            return undefined;
-        }
-
-        // If current is partially inside against, return the lower and upper bounds
-        let start_line = Math.min(current.start.line, against.start.line);
-        let end_line = Math.max(current.end.line, against.end.line);
-
-        return new vscode.Range(start_line, 0, end_line, 0);
+        Object.keys(this.files).forEach(key => this.removeSpecificRangeFromFile(key as 'ok' | 'warning' | 'danger', filename, range));
     }
 
     public addRangeToRanges(ranges: vscode.Range[], range: vscode.Range): vscode.Range[] {
-        if (ranges.length === 0) {
-            return [range];
-        }
-        
-        let wasMerged = false;
-        for (let i = 0; i < ranges.length; ++i) {
-            const current = ranges[i];
-            const merged = this.tryMergeRanges(current, range);
-            if (merged) {
-                ranges[i] = merged;
-                wasMerged = true;
-            }
-        }
-
-        if (!wasMerged) {
-            ranges.push(range);
-        }
-
-        return ranges;
+        // For now we assume that we don't overwrite on anything
+        // Because we delete everything prior to adding
+        // But we could consider merging adjacent ranges
+        return ranges.concat(range);
     }
 
     public addRange(type: 'ok' | 'warning' | 'danger', filename: string, range: vscode.Range): void {
@@ -155,12 +104,12 @@ export class State {
     }
 
     public changeFilename(oldFilename: string, newFilename: string): void {
-        for (const key of Object.keys(this.files)) {
-            const ranges = this.files[key as 'ok' | 'warning' | 'danger'].get(oldFilename);
-            if (ranges) {
-                this.files[key as 'ok' | 'warning' | 'danger'].delete(oldFilename);
-                this.files[key as 'ok' | 'warning' | 'danger'].set(newFilename, ranges);
+        Object.entries(this.files).forEach(([key, map]) => {
+            if (map.has(oldFilename)) {
+                const ranges = map.get(oldFilename)!;
+                map.delete(oldFilename);
+                map.set(newFilename, ranges);
             }
-        }
+        });
     }
 }
