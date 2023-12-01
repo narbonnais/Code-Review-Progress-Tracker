@@ -16,26 +16,31 @@
   "contributes": {
     "commands": [
       {
-        "command": "code-review-progress-tracker.reviewedOk",
-        "title": "Mark as Reviewed: OK"
+          "command": "code-review-progress-tracker.reviewedOk",
+          "title": "Mark Reviewed (OK)",
+          "category": "Code Review Tracker"
       },
       {
-        "command": "code-review-progress-tracker.reviewedWarning",
-        "title": "Mark as Reviewed: Warning"
+          "command": "code-review-progress-tracker.reviewedWarning",
+          "title": "Mark Reviewed (Warning)",
+          "category": "Code Review Tracker"
       },
       {
-        "command": "code-review-progress-tracker.reviewedDanger",
-        "title": "Mark as Reviewed: Danger"
+          "command": "code-review-progress-tracker.reviewedDanger",
+          "title": "Mark Reviewed (Danger)",
+          "category": "Code Review Tracker"
       },
       {
-        "command": "code-review-progress-tracker.reviewedClear",
-        "title": "Clear Review Markers"
+          "command": "code-review-progress-tracker.reviewedClear",
+          "title": "Clear Review Mark",
+          "category": "Code Review Tracker"
       },
       {
-        "command": "code-review-progress-tracker.reviewedClearAll",
-        "title": "Clear All Review Markers"
+          "command": "code-review-progress-tracker.reviewedClearAll",
+          "title": "Clear All Review Marks",
+          "category": "Code Review Tracker"
       }
-    ]
+  ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
