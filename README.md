@@ -14,12 +14,12 @@ Code Review Progress Tracker is a Visual Studio Code extension designed to help 
 
 ## Installation
 
-To install the Code Review Progress Tracker, follow these steps:
+To install the Code Review Progress Tracker, download a [realease](https://github.com/narbonnais/Code-Review-Progress-Tracker/releases) and follow these steps:
 
 1. Open Visual Studio Code.
-2. Go to the Extensions view by clicking on the Extensions icon in the Activity Bar on the side of the window.
-3. Search for "Code Review Progress Tracker".
-4. Click the Install button.
+2. Open the command palette (`Ctrl+Shift+P` or `Cmd+Shift+P`).
+3. Type `Extensions: Install from VSIX...` and press Enter.
+4. Select the downloaded VSIX file and press Enter.
 
 ## Usage
 
@@ -31,7 +31,7 @@ After installation, you can use the following commands:
 - `code-review-progress-tracker.reviewedClear`: Clear review mark from a section.
 - `code-review-progress-tracker.reviewedClearAll`: Clear all review marks from the current file.
 
-To use these commands, select the code you want to mark, open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`), and type the command.
+To use these commands, select the code you want to mark, open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`), and type the command. It is also recommended to bind essential commands to keyboard shortcuts.
 
 ## Requirements
 
