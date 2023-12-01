@@ -2,7 +2,11 @@
   "name": "code-review-progress-tracker",
   "displayName": "Code Review Progress Tracker",
   "description": "A helper to track the progress of a code review",
-  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/narbonnais/Code-Review-Progress-Tracker.git"
+  },
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.84.0"
   },
