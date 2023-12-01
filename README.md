@@ -4,6 +4,8 @@
 
 Code Review Progress Tracker is a Visual Studio Code extension designed to help developers track their progress while reviewing code. It allows users to mark specific lines or sections of code in different review states like 'OK', 'Warning', and 'Danger'.
 
+![preview](./preview.png)
+
 ## Features
 
 - **Mark Sections**: Easily mark sections of code as reviewed with different statuses (OK, Warning, Danger).
