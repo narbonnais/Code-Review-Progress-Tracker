@@ -3,14 +3,21 @@ import { Config } from './config';
 import { State } from './state';
 
 export function activate(context: vscode.ExtensionContext) {
+
     console.log('Congratulations, your extension "code-review-progress-tracker" is now active!');
 
     const config = new Config(context);
     const state = new State();
 
-    let temp = context.workspaceState.get("State");
-    if (temp) {
-        state.loadFromJson(temp);
+    try {
+        let temp = context.workspaceState.get("State");
+        if (temp) {
+            state.loadFromJson(temp);
+        }
+    }
+    catch (e) {
+        // Something went wrong, clear the state
+        state.clearAllFiles();
     }
 
     const updateDecorations = (activeEditor: vscode.TextEditor) => {
@@ -68,6 +75,7 @@ export function activate(context: vscode.ExtensionContext) {
             });
         })
     );
+
 }
 
-export function deactivate() {}
+export function deactivate() { }
