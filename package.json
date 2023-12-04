@@ -6,7 +6,7 @@
     "type": "git",
     "url": "https://github.com/narbonnais/Code-Review-Progress-Tracker.git"
   },
-  "version": "1.0.0",
+  "version": "1.0.1",
   "engines": {
     "vscode": "^1.84.0"
   },
@@ -14,7 +14,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "*"
   ],
   "main": "./out/extension.js",
   "contributes": {
