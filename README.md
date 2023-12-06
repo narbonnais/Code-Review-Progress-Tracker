@@ -30,6 +30,11 @@ After installation, you can use the following commands:
 - `code-review-progress-tracker.reviewedDanger`: Mark a section as dangerous.
 - `code-review-progress-tracker.reviewedClear`: Clear review mark from a section.
 - `code-review-progress-tracker.reviewedClearAll`: Clear all review marks from the current file.
+- `code-review-progress-tracker.reviewedFileOk`: Add a ✓ marker to the file in the explorer.
+- `code-review-progress-tracker.reviewedFileWarning`: Add a ? marker to the file in the explorer.
+- `code-review-progress-tracker.reviewedFileDanger`: Add a ✗ marker to the file in the explorer.
+- `code-review-progress-tracker.reviewedFileOutOfScope`: Add a ⊘ marker to the file in the explorer.
+- `code-review-progress-tracker.reviewedFileClear`: Remove the marker from the file in the explorer.
 
 To use these commands, select the code you want to mark, open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`), and type the command. It is also recommended to bind essential commands to keyboard shortcuts.
 
@@ -47,9 +52,17 @@ No known issues so far. If you find any bugs or have a feature request, please o
 
 ## Release Notes
 
+### 1.0.2
+
+- Added file markers to the explorer.
+
+### 1.0.1
+
+- Fixed a bug where the extension would not work.
+
 ### 1.0.0
 
-Initial release of Code Review Progress Tracker.
+- Initial release of Code Review Progress Tracker.
 
 ## Contributing
 
