@@ -9,6 +9,8 @@ export class State {
         warning: new Map(),
         danger: new Map()
     };
+    private fileReviewStatuses: { [key: string]: string } = {}; // filename -> status ('ok', 'warning', 'danger')
+    private disposable: vscode.Disposable | undefined;
 
     private parseJsonToRanges(json: any): vscode.Range[] {
         return json.map((range: [number, number]) => new vscode.Range(range[0], 0, range[1], 0));
@@ -19,9 +21,12 @@ export class State {
     }
 
     public loadFromJson(json: any): void {
+        // ranges
         for (const key of Object.keys(this.files)) {
             this.files[key] = new Map(Object.entries(json[`files_to_${key}`]).map(([k, v]) => [k, this.parseJsonToRanges(v)]));
         }
+        // file review statuses
+        this.fileReviewStatuses = json['file_review_statuses'] || {};
     }
 
     public toJson(): any {
@@ -29,11 +34,13 @@ export class State {
         for (const key of Object.keys(this.files)) {
             obj[`files_to_${key}`] = Object.fromEntries(Array.from(this.files[key].entries()).map(([k, v]) => [k, v.map(this.rangeToJson)]));
         }
+        obj['file_review_statuses'] = this.fileReviewStatuses;
         return obj;
     }
 
     public clearAllFiles(): void {
         Object.values(this.files).forEach(map => map.clear());
+        this.fileReviewStatuses = {};
     }
 
     public clearFile(filename: string): void {
@@ -111,5 +118,37 @@ export class State {
                 map.set(newFilename, ranges);
             }
         });
+        this.fileReviewStatuses[newFilename] = this.fileReviewStatuses[oldFilename];
+        delete this.fileReviewStatuses[oldFilename];
     }
+
+    // Set the file review status
+    public setFileReviewStatus(filename: string, status: 'ok' | 'warning' | 'danger' | 'clear' | 'outOfScope'): void {
+        this.fileReviewStatuses[filename] = status;
+    }
+
+    // Get the file review status
+    public getFileReviewStatus(filename: string): string | undefined {
+        return this.fileReviewStatuses[filename];
+    }
+
+    // Clear the file review status
+    public clearFileReviewStatus(filename: string): void {
+        delete this.fileReviewStatuses[filename];
+    }
+
+    public getFileReviewStatuses(): { [key: string]: string } {
+        return this.fileReviewStatuses;
+    }
+
+    public setDisposable(disposable: vscode.Disposable): void {
+        this.disposable = disposable;
+    }
+
+    public deleteDispoable(): void {
+        if (this.disposable) {
+            this.disposable.dispose();
+        }
+    }
+
 }

@@ -6,7 +6,7 @@
     "type": "git",
     "url": "https://github.com/narbonnais/Code-Review-Progress-Tracker.git"
   },
-  "version": "1.0.1",
+  "version": "1.0.2",
   "engines": {
     "vscode": "^1.84.0"
   },
@@ -43,8 +43,33 @@
           "command": "code-review-progress-tracker.reviewedClearAll",
           "title": "Clear All Review Marks",
           "category": "Code Review Tracker"
+      },
+      {
+        "command": "code-review-progress-tracker.reviewedFileOk",
+        "title": "Mark File Reviewed (OK)",
+        "category": "Code Review Tracker"
+      },
+      {
+        "command": "code-review-progress-tracker.reviewedFileWarning",
+        "title": "Mark File Reviewed (Warning)",
+        "category": "Code Review Tracker"
+      },
+      {
+        "command": "code-review-progress-tracker.reviewedFileDanger",
+        "title": "Mark File Reviewed (Danger)",
+        "category": "Code Review Tracker"
+      },
+      {
+        "command": "code-review-progress-tracker.reviewedFileOutOfScope",
+        "title": "Mark File Reviewed (Out of scope)",
+        "category": "Code Review Tracker"
+      },
+      {
+        "command": "code-review-progress-tracker.reviewedFileClear",
+        "title": "Clear File Review Mark",
+        "category": "Code Review Tracker"
       }
-  ]
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

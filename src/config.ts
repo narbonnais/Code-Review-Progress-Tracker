@@ -3,6 +3,35 @@ import * as vscode from 'vscode';
 export class Config {
     private context: vscode.ExtensionContext;
     private decorationTypes: Map<string, vscode.TextEditorDecorationType> = new Map();
+    private filedecorations: Map<string, vscode.FileDecoration> = new Map();
+
+    private static readonly FILE_EXPLORER_DECORATION = {
+        ok: {
+            badge: '✓',
+            tooltip: 'Reviewed',
+            color: '#00ff00'
+        },
+        warning: {
+            badge: '?',
+            tooltip: 'Needs review',
+            color: '#ffff00'
+        },
+        danger: {
+            badge: '!',
+            tooltip: 'Needs review',
+            color: '#ff0000'
+        },
+        clear: {
+            badge: '',
+            tooltip: '',
+            color: ''
+        },
+        outOfScope: {
+            badge: '⊘',
+            tooltip: 'Out of scope',
+            color: '#00ffff'
+        }
+    }
 
     private static readonly COLORS = {
         green: { code: '#4caf500a', ruler: '#4caf50', darkIcon: 'green-dark.svg', lightIcon: 'green-light.svg' },
@@ -45,14 +74,31 @@ export class Config {
         };
     }
 
+    private makeFileExplorerDecorationRenderOptions(fileDecorationKey: string): vscode.FileDecoration {
+        const decorationConfig = Config.FILE_EXPLORER_DECORATION[fileDecorationKey as keyof typeof Config.FILE_EXPLORER_DECORATION];
+        return {
+            badge: decorationConfig.badge,
+            tooltip: decorationConfig.tooltip,
+            color: decorationConfig.color
+        };
+    }
+
     private setup(): void {
         Object.keys(Config.COLORS).forEach(colorKey => {
             const decorationOptions = this.makeDecorationRenderOptions(colorKey);
             this.decorationTypes.set(colorKey, vscode.window.createTextEditorDecorationType(decorationOptions));
         });
+        Object.keys(Config.FILE_EXPLORER_DECORATION).forEach(fileDecorationKey => {
+            const decorationOptions = this.makeFileExplorerDecorationRenderOptions(fileDecorationKey);
+            this.filedecorations.set(fileDecorationKey, decorationOptions);
+        });
     }
 
     public getDecorationType(colorKey: string): vscode.TextEditorDecorationType | undefined {
         return this.decorationTypes.get(Config.CODE_TO_COLOR[colorKey as keyof typeof Config.CODE_TO_COLOR]);
+    }
+
+    public getFileExplorerDecoration(fileDecorationKey: string): vscode.FileDecoration {
+        return this.makeFileExplorerDecorationRenderOptions(fileDecorationKey);
     }
 };
