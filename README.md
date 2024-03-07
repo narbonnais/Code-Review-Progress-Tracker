@@ -14,7 +14,7 @@ Code Review Progress Tracker is a Visual Studio Code extension designed to help 
 
 ## Installation
 
-To install the Code Review Progress Tracker, download a [realease](https://github.com/narbonnais/Code-Review-Progress-Tracker/releases) and follow these steps:
+To install the Code Review Progress Tracker, download a [release](https://github.com/narbonnais/Code-Review-Progress-Tracker/releases) and follow these steps:
 
 1. Open Visual Studio Code.
 2. Open the command palette (`Ctrl+Shift+P` or `Cmd+Shift+P`).
