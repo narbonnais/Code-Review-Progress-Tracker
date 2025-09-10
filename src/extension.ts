@@ -8,6 +8,21 @@ export function activate(context: vscode.ExtensionContext) {
 
     const config = new Config(context);
     const state = new State();
+    const decorationsEmitter = new vscode.EventEmitter<vscode.Uri | vscode.Uri[] | undefined>();
+
+    // Register a single FileDecorationProvider driven by an event emitter
+    const fileDecorationProvider: vscode.FileDecorationProvider = {
+        onDidChangeFileDecorations: decorationsEmitter.event,
+        provideFileDecoration: (uri: vscode.Uri) => {
+            const key = uri.toString();
+            const status = state.getFileReviewStatus(key);
+            if (status) {
+                const fileDecoration = config.getFileExplorerDecoration(status);
+                return fileDecoration;
+            }
+        }
+    };
+    context.subscriptions.push(vscode.window.registerFileDecorationProvider(fileDecorationProvider));
 
     // // modify file name color in explorer
     // const fileDecoration = new vscode.FileDecoration(
@@ -32,20 +47,8 @@ export function activate(context: vscode.ExtensionContext) {
         let temp = context.workspaceState.get("State");
         if (temp) {
             state.loadFromJson(temp);
-            
-            const fileDecorationProvider = vscode.window.registerFileDecorationProvider({
-                provideFileDecoration: (uri: vscode.Uri) => {
-                    const path = uri.path.toString();
-                    const status = state.getFileReviewStatus(path);
-                    if (status) {
-                        const fileDecoration = config.getFileExplorerDecoration(status);
-                        if (fileDecoration) {
-                            return fileDecoration;
-                        }
-                    }
-                }
-            });
-            state.setDisposable(fileDecorationProvider);
+            // Refresh all file decorations based on restored state
+            decorationsEmitter.fire(undefined);
         }
     }
     catch (e) {
@@ -55,7 +58,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     const updateDecorations = (activeEditor: vscode.TextEditor) => {
         if (!activeEditor) return;
-        const path = activeEditor.document.uri.path.toString();
+        const path = activeEditor.document.uri.toString();
         ['ok', 'warning', 'danger'].forEach(status => {
             const decorationType = config.getDecorationType(status);
             const ranges = state.getRanges(status as 'ok' | 'warning' | 'danger', path);
@@ -70,7 +73,7 @@ export function activate(context: vscode.ExtensionContext) {
         const editor = vscode.window.activeTextEditor;
         if (!editor) return;
 
-        const path = editor.document.uri.path.toString();
+        const path = editor.document.uri.toString();
         const textRange = new vscode.Range(editor.selection.start, editor.selection.end);
 
         if (type !== 'clear') {
@@ -87,28 +90,16 @@ export function activate(context: vscode.ExtensionContext) {
         const editor = vscode.window.activeTextEditor;
         if (!editor) return;
 
-        const path = editor.document.uri.path.toString();
+        const path = editor.document.uri.toString();
 
         if (type !== 'clear') {
             state.setFileReviewStatus(path, type);
         } else {
             state.clearFileReviewStatus(path);
         }
-
-        state.deleteDispoable();
-        const fileDecorationProvider = vscode.window.registerFileDecorationProvider({
-            provideFileDecoration: (uri: vscode.Uri) => {
-                const path = uri.path.toString();
-                const status = state.getFileReviewStatus(path);
-                if (status) {
-                    const fileDecoration = config.getFileExplorerDecoration(status);
-                    if (fileDecoration) {
-                        return fileDecoration;
-                    }
-                }
-            }
-        });
-        state.setDisposable(fileDecorationProvider);
+        // Persist and refresh decorations
+        context.workspaceState.update("State", state.toJson());
+        decorationsEmitter.fire(undefined);
 
     }
 
@@ -135,7 +126,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('code-review-progress-tracker.reviewedClearAll', () => {
             const editor = vscode.window.activeTextEditor;
             if (!editor) return;
-            state.clearFile(editor.document.uri.path.toString());
+            state.clearFile(editor.document.uri.toString());
             updateDecorations(editor);
         }),
         vscode.window.onDidChangeActiveTextEditor(editor => {
@@ -143,8 +134,11 @@ export function activate(context: vscode.ExtensionContext) {
         }),
         vscode.workspace.onWillRenameFiles(event => {
             event.files.forEach(file => {
-                state.changeFilename(file.oldUri.path.toString(), file.newUri.path.toString());
+                state.changeFilename(file.oldUri.toString(), file.newUri.toString());
             });
+            // Persist and refresh decorations for affected URIs
+            context.workspaceState.update("State", state.toJson());
+            decorationsEmitter.fire(event.files.flatMap(f => [f.oldUri, f.newUri]));
         })
     );
 

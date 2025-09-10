@@ -14,7 +14,16 @@
     "Other"
   ],
   "activationEvents": [
-    "*"
+    "onCommand:code-review-progress-tracker.reviewedOk",
+    "onCommand:code-review-progress-tracker.reviewedWarning",
+    "onCommand:code-review-progress-tracker.reviewedDanger",
+    "onCommand:code-review-progress-tracker.reviewedClear",
+    "onCommand:code-review-progress-tracker.reviewedClearAll",
+    "onCommand:code-review-progress-tracker.reviewedFileOk",
+    "onCommand:code-review-progress-tracker.reviewedFileWarning",
+    "onCommand:code-review-progress-tracker.reviewedFileDanger",
+    "onCommand:code-review-progress-tracker.reviewedFileOutOfScope",
+    "onCommand:code-review-progress-tracker.reviewedFileClear"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -68,6 +77,63 @@
         "command": "code-review-progress-tracker.reviewedFileClear",
         "title": "Clear File Review Mark",
         "category": "Code Review Tracker"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "code-review-progress-tracker.reviewedOk",
+        "key": "ctrl+alt+1",
+        "mac": "cmd+alt+1",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "code-review-progress-tracker.reviewedWarning",
+        "key": "ctrl+alt+2",
+        "mac": "cmd+alt+2",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "code-review-progress-tracker.reviewedDanger",
+        "key": "ctrl+alt+3",
+        "mac": "cmd+alt+3",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "code-review-progress-tracker.reviewedClear",
+        "key": "ctrl+alt+0",
+        "mac": "cmd+alt+0",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "code-review-progress-tracker.reviewedClearAll",
+        "key": "ctrl+alt+backspace",
+        "mac": "cmd+alt+backspace",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "code-review-progress-tracker.reviewedFileOk",
+        "key": "ctrl+alt+shift+1",
+        "mac": "cmd+alt+shift+1"
+      },
+      {
+        "command": "code-review-progress-tracker.reviewedFileWarning",
+        "key": "ctrl+alt+shift+2",
+        "mac": "cmd+alt+shift+2"
+      },
+      {
+        "command": "code-review-progress-tracker.reviewedFileDanger",
+        "key": "ctrl+alt+shift+3",
+        "mac": "cmd+alt+shift+3"
+      },
+      {
+        "command": "code-review-progress-tracker.reviewedFileOutOfScope",
+        "key": "ctrl+alt+shift+4",
+        "mac": "cmd+alt+shift+4"
+      },
+      {
+        "command": "code-review-progress-tracker.reviewedFileClear",
+        "key": "ctrl+alt+shift+0",
+        "mac": "cmd+alt+shift+0"
       }
     ]
   },

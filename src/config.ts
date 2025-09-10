@@ -9,17 +9,17 @@ export class Config {
         ok: {
             badge: '✓',
             tooltip: 'Reviewed',
-            color: '#00ff00'
+            color: 'testing.iconPassed'
         },
         warning: {
             badge: '?',
-            tooltip: 'Needs review',
-            color: '#ffff00'
+            tooltip: 'Needs attention',
+            color: 'editorWarning.foreground'
         },
         danger: {
             badge: '!',
-            tooltip: 'Needs review',
-            color: '#ff0000'
+            tooltip: 'Action required',
+            color: 'testing.iconFailed'
         },
         clear: {
             badge: '',
@@ -29,7 +29,7 @@ export class Config {
         outOfScope: {
             badge: '⊘',
             tooltip: 'Out of scope',
-            color: '#00ffff'
+            color: 'editorInfo.foreground'
         }
     }
 
@@ -79,15 +79,20 @@ export class Config {
         return {
             badge: decorationConfig.badge,
             tooltip: decorationConfig.tooltip,
-            color: decorationConfig.color
+            color: decorationConfig.color ? new vscode.ThemeColor(decorationConfig.color) : undefined,
         };
     }
 
     private setup(): void {
+        // Dispose existing decoration types before recreating them
+        this.decorationTypes.forEach(dt => dt.dispose());
+        this.decorationTypes.clear();
+
         Object.keys(Config.COLORS).forEach(colorKey => {
             const decorationOptions = this.makeDecorationRenderOptions(colorKey);
             this.decorationTypes.set(colorKey, vscode.window.createTextEditorDecorationType(decorationOptions));
         });
+        // File decorations are simple objects and do not require disposal
         Object.keys(Config.FILE_EXPLORER_DECORATION).forEach(fileDecorationKey => {
             const decorationOptions = this.makeFileExplorerDecorationRenderOptions(fileDecorationKey);
             this.filedecorations.set(fileDecorationKey, decorationOptions);
