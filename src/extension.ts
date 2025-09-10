@@ -132,6 +132,24 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.onDidChangeActiveTextEditor(editor => {
             if (editor) updateDecorations(editor);
         }),
+        vscode.workspace.onDidChangeTextDocument(e => {
+            const docKey = e.document.uri.toString();
+            // Adjust stored ranges per content change
+            for (const change of e.contentChanges) {
+                const newLineCount = (change.text.match(/\n/g) || []).length;
+                const oldLineCount = change.range.end.line - change.range.start.line;
+                const delta = newLineCount - oldLineCount;
+                if (delta !== 0) {
+                    state.applyLineDelta(docKey, change.range.start.line, change.range.end.line, delta);
+                }
+            }
+            const active = vscode.window.activeTextEditor;
+            if (active && active.document.uri.toString() === docKey) {
+                updateDecorations(active);
+            } else {
+                context.workspaceState.update("State", state.toJson());
+            }
+        }),
         vscode.workspace.onWillRenameFiles(event => {
             event.files.forEach(file => {
                 state.changeFilename(file.oldUri.toString(), file.newUri.toString());

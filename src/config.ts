@@ -3,7 +3,6 @@ import * as vscode from 'vscode';
 export class Config {
     private context: vscode.ExtensionContext;
     private decorationTypes: Map<string, vscode.TextEditorDecorationType> = new Map();
-    private filedecorations: Map<string, vscode.FileDecoration> = new Map();
 
     private static readonly FILE_EXPLORER_DECORATION = {
         ok: {
@@ -91,11 +90,6 @@ export class Config {
         Object.keys(Config.COLORS).forEach(colorKey => {
             const decorationOptions = this.makeDecorationRenderOptions(colorKey);
             this.decorationTypes.set(colorKey, vscode.window.createTextEditorDecorationType(decorationOptions));
-        });
-        // File decorations are simple objects and do not require disposal
-        Object.keys(Config.FILE_EXPLORER_DECORATION).forEach(fileDecorationKey => {
-            const decorationOptions = this.makeFileExplorerDecorationRenderOptions(fileDecorationKey);
-            this.filedecorations.set(fileDecorationKey, decorationOptions);
         });
     }
 

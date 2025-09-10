@@ -10,7 +10,6 @@ export class State {
         danger: new Map()
     };
     private fileReviewStatuses: { [key: string]: string } = {}; // filename -> status ('ok', 'warning', 'danger')
-    private disposable: vscode.Disposable | undefined;
 
     private parseJsonToRanges(json: any): vscode.Range[] {
         return json.map((range: [number, number]) => new vscode.Range(range[0], 0, range[1], 0));
@@ -141,14 +140,49 @@ export class State {
         return this.fileReviewStatuses;
     }
 
-    public setDisposable(disposable: vscode.Disposable): void {
-        this.disposable = disposable;
-    }
-
-    public deleteDispoable(): void {
-        if (this.disposable) {
-            this.disposable.dispose();
+    // Adjust all stored ranges for a file given a change's line delta
+    public applyLineDelta(filename: string, changeStartLine: number, changeEndLine: number, lineDelta: number): void {
+        if (lineDelta === 0) {
+            return;
         }
+        const adjustRanges = (ranges: vscode.Range[]): vscode.Range[] => {
+            const result: vscode.Range[] = [];
+            for (const r of ranges) {
+                let rs = r.start.line;
+                let re = r.end.line;
+                // no overlap and before change
+                if (re < changeStartLine) {
+                    result.push(r);
+                    continue;
+                }
+                // after change: shift fully
+                if (rs > changeEndLine) {
+                    const nrs = Math.max(0, rs + lineDelta);
+                    const nre = Math.max(0, re + lineDelta);
+                    result.push(new vscode.Range(nrs, 0, nre, 0));
+                    continue;
+                }
+                // overlap
+                let nrs = rs;
+                if (changeStartLine <= rs) {
+                    nrs = Math.max(0, rs + lineDelta);
+                }
+                const nre = Math.max(0, re + lineDelta);
+                if (nre >= nrs) {
+                    result.push(new vscode.Range(nrs, 0, nre, 0));
+                }
+                // If inverted (deleted whole range), drop it
+            }
+            return result;
+        };
+
+        (['ok', 'warning', 'danger'] as const).forEach((key) => {
+            const map = this.files[key];
+            const ranges = map.get(filename);
+            if (ranges && ranges.length) {
+                map.set(filename, adjustRanges(ranges));
+            }
+        });
     }
 
 }
