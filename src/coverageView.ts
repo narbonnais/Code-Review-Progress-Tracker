@@ -22,6 +22,7 @@ interface CoverageNode {
 export class CoverageView {
     private readonly provider: CoverageTreeDataProvider;
     private readonly treeView: vscode.TreeView<CoverageTreeItem>;
+    private lastRevealTarget: vscode.Uri | undefined;
 
     constructor(
         private readonly context: vscode.ExtensionContext,
@@ -37,6 +38,9 @@ export class CoverageView {
 
     refresh(): void {
         this.provider.refresh();
+        if (this.lastRevealTarget) {
+            void this.revealFile(this.lastRevealTarget);
+        }
     }
 
     getSummary(): CoverageSummary {
@@ -112,6 +116,23 @@ export class CoverageView {
         }
         return undefined;
     }
+
+    async revealFile(uri: vscode.Uri | undefined): Promise<void> {
+        if (!uri) {
+            this.lastRevealTarget = undefined;
+            return;
+        }
+        this.lastRevealTarget = uri;
+        const item = await this.provider.getItemForUri(uri);
+        if (!item) {
+            return;
+        }
+        try {
+            await this.treeView.reveal(item, { select: true, focus: false, expand: true });
+        } catch {
+            // Tree view might not be visible; ignore reveal errors
+        }
+    }
 }
 
 interface FileCoverageInfo {
@@ -144,6 +165,7 @@ export class CoverageTreeItem extends vscode.TreeItem {
         if (node.uri) {
             this.resourceUri = node.uri;
         }
+        this.iconPath = CoverageTreeItem.buildIcon(node);
         const baseContext = CoverageTreeItem.getBaseContext(node);
         if (node.directIgnore) {
             this.contextValue = `${baseContext}Ignored`;
@@ -172,6 +194,18 @@ export class CoverageTreeItem extends vscode.TreeItem {
         }
 
         return parts.join(' · ');
+    }
+
+    private static buildIcon(node: CoverageNode): vscode.ThemeIcon | undefined {
+        if (node.type !== 'file') {
+            return undefined;
+        }
+        const isFullyCovered = node.totalLines > 0 && node.coveredLines >= node.totalLines;
+        const hasAttentionStatus = node.status === 'warning' || node.status === 'danger';
+        if (isFullyCovered && !hasAttentionStatus) {
+            return new vscode.ThemeIcon('file', new vscode.ThemeColor('disabledForeground'));
+        }
+        return undefined;
     }
 
     private static buildTooltip(node: CoverageNode): vscode.MarkdownString {
@@ -210,6 +244,7 @@ export class CoverageTreeDataProvider implements vscode.TreeDataProvider<Coverag
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
     private rootNodes: CoverageNode[] = [];
+    private readonly nodesByUri = new Map<string, CoverageNode>();
     private summary: CoverageSummary = {
         coveredLines: 0,
         totalLines: 0,
@@ -252,6 +287,15 @@ export class CoverageTreeDataProvider implements vscode.TreeDataProvider<Coverag
 
     getSummary(): CoverageSummary {
         return this.summary;
+    }
+
+    async getItemForUri(uri: vscode.Uri): Promise<CoverageTreeItem | undefined> {
+        await this.ensureModel();
+        const node = this.nodesByUri.get(uri.toString());
+        if (!node) {
+            return undefined;
+        }
+        return new CoverageTreeItem(node);
     }
 
     private async ensureModel(): Promise<void> {
@@ -332,6 +376,13 @@ export class CoverageTreeDataProvider implements vscode.TreeDataProvider<Coverag
         ignoredEntries: Map<string, IgnoredEntryType>
     ): CoverageNode[] {
         const rootsByWorkspace = new Map<string, CoverageNode>();
+        this.nodesByUri.clear();
+
+        const registerNode = (node: CoverageNode) => {
+            if (node.uri) {
+                this.nodesByUri.set(node.uri.toString(), node);
+            }
+        };
 
         const ensureNode = (
             parent: CoverageNode,
@@ -358,6 +409,9 @@ export class CoverageTreeDataProvider implements vscode.TreeDataProvider<Coverag
                     parent
                 };
                 parent.children.push(child);
+                registerNode(child);
+            } else {
+                registerNode(child);
             }
             return child;
         };
@@ -382,6 +436,7 @@ export class CoverageTreeDataProvider implements vscode.TreeDataProvider<Coverag
                     parent: undefined
                 };
                 rootsByWorkspace.set(workspaceUri.toString(), root);
+                registerNode(root);
             }
 
             const relativePath = info.uri.path.slice(workspaceUri.path.length).replace(/^\//, '');
@@ -410,6 +465,7 @@ export class CoverageTreeDataProvider implements vscode.TreeDataProvider<Coverag
                 parent: current
             };
             current.children.push(fileNode);
+            registerNode(fileNode);
         }
 
         const roots = Array.from(rootsByWorkspace.values());

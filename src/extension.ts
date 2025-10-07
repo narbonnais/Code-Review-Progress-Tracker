@@ -21,6 +21,13 @@ export function activate(context: vscode.ExtensionContext) {
             coverageRefreshHandle = undefined;
         }, 300);
     };
+    const syncCoverageSelection = (editor: vscode.TextEditor | undefined) => {
+        if (!editor) {
+            void coverageView.revealFile(undefined);
+            return;
+        }
+        void coverageView.revealFile(editor.document.uri);
+    };
     const persistState = () => {
         scheduleCoverageRefresh();
         return context.workspaceState.update("State", state.toJson());
@@ -155,6 +162,7 @@ export function activate(context: vscode.ExtensionContext) {
         }),
         vscode.window.onDidChangeActiveTextEditor(editor => {
             if (editor) updateDecorations(editor);
+            syncCoverageSelection(editor);
         }),
         vscode.workspace.onDidChangeTextDocument(e => {
             const docKey = e.document.uri.toString();
@@ -195,6 +203,11 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    const initialEditor = vscode.window.activeTextEditor;
+    if (initialEditor) {
+        updateDecorations(initialEditor);
+    }
+    syncCoverageSelection(initialEditor);
 }
 
 export function deactivate() { }

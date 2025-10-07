@@ -6,7 +6,7 @@
     "type": "git",
     "url": "https://github.com/narbonnais/Code-Review-Progress-Tracker.git"
   },
-  "version": "1.0.2",
+  "version": "1.1.1",
   "engines": {
     "vscode": "^1.84.0"
   },
@@ -29,29 +29,29 @@
   "contributes": {
     "commands": [
       {
-          "command": "code-review-progress-tracker.reviewedOk",
-          "title": "Mark Reviewed (OK)",
-          "category": "Code Review Tracker"
+        "command": "code-review-progress-tracker.reviewedOk",
+        "title": "Mark Reviewed (OK)",
+        "category": "Code Review Tracker"
       },
       {
-          "command": "code-review-progress-tracker.reviewedWarning",
-          "title": "Mark Reviewed (Warning)",
-          "category": "Code Review Tracker"
+        "command": "code-review-progress-tracker.reviewedWarning",
+        "title": "Mark Reviewed (Warning)",
+        "category": "Code Review Tracker"
       },
       {
-          "command": "code-review-progress-tracker.reviewedDanger",
-          "title": "Mark Reviewed (Danger)",
-          "category": "Code Review Tracker"
+        "command": "code-review-progress-tracker.reviewedDanger",
+        "title": "Mark Reviewed (Danger)",
+        "category": "Code Review Tracker"
       },
       {
-          "command": "code-review-progress-tracker.reviewedClear",
-          "title": "Clear Review Mark",
-          "category": "Code Review Tracker"
+        "command": "code-review-progress-tracker.reviewedClear",
+        "title": "Clear Review Mark",
+        "category": "Code Review Tracker"
       },
       {
-          "command": "code-review-progress-tracker.reviewedClearAll",
-          "title": "Clear All Review Marks",
-          "category": "Code Review Tracker"
+        "command": "code-review-progress-tracker.reviewedClearAll",
+        "title": "Clear All Review Marks",
+        "category": "Code Review Tracker"
       },
       {
         "command": "code-review-progress-tracker.reviewedFileOk",
@@ -155,8 +155,7 @@
         "key": "ctrl+alt+shift+0",
         "mac": "cmd+alt+shift+0"
       }
-    ]
-    ,
+    ],
     "viewsContainers": {
       "activitybar": [
         {
