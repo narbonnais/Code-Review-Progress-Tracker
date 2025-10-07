@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { Config } from './config';
 import { State } from './state';
+import { CoverageTreeItem, CoverageView } from './coverageView';
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -9,6 +10,26 @@ export function activate(context: vscode.ExtensionContext) {
     const config = new Config(context);
     const state = new State();
     const decorationsEmitter = new vscode.EventEmitter<vscode.Uri | vscode.Uri[] | undefined>();
+    const coverageView = new CoverageView(context, state);
+    let coverageRefreshHandle: NodeJS.Timeout | undefined;
+    const scheduleCoverageRefresh = () => {
+        if (coverageRefreshHandle) {
+            clearTimeout(coverageRefreshHandle);
+        }
+        coverageRefreshHandle = setTimeout(() => {
+            coverageView.refresh();
+            coverageRefreshHandle = undefined;
+        }, 300);
+    };
+    const persistState = () => {
+        scheduleCoverageRefresh();
+        return context.workspaceState.update("State", state.toJson());
+    };
+    context.subscriptions.push({ dispose: () => {
+        if (coverageRefreshHandle) {
+            clearTimeout(coverageRefreshHandle);
+        }
+    }});
 
     // Register a single FileDecorationProvider driven by an event emitter
     const fileDecorationProvider: vscode.FileDecorationProvider = {
@@ -49,11 +70,13 @@ export function activate(context: vscode.ExtensionContext) {
             state.loadFromJson(temp);
             // Refresh all file decorations based on restored state
             decorationsEmitter.fire(undefined);
+            coverageView.refresh();
         }
     }
     catch (e) {
         // Something went wrong, clear the state
         state.clearAllFiles();
+        void persistState();
     }
 
     const updateDecorations = (activeEditor: vscode.TextEditor) => {
@@ -66,7 +89,6 @@ export function activate(context: vscode.ExtensionContext) {
                 activeEditor.setDecorations(decorationType, ranges || []);
             }
         });
-        context.workspaceState.update("State", state.toJson());
     }
 
     const handleReviewCommand = (type: 'ok' | 'warning' | 'danger' | 'clear') => {
@@ -84,6 +106,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         updateDecorations(editor);
+        void persistState();
     }
 
     const handleFileReviewCommand = (type: 'ok' | 'warning' | 'danger' | 'clear' | 'outOfScope') => {
@@ -98,8 +121,8 @@ export function activate(context: vscode.ExtensionContext) {
             state.clearFileReviewStatus(path);
         }
         // Persist and refresh decorations
-        context.workspaceState.update("State", state.toJson());
         decorationsEmitter.fire(undefined);
+        void persistState();
 
     }
 
@@ -128,6 +151,7 @@ export function activate(context: vscode.ExtensionContext) {
             if (!editor) return;
             state.clearFile(editor.document.uri.toString());
             updateDecorations(editor);
+            void persistState();
         }),
         vscode.window.onDidChangeActiveTextEditor(editor => {
             if (editor) updateDecorations(editor);
@@ -146,17 +170,28 @@ export function activate(context: vscode.ExtensionContext) {
             const active = vscode.window.activeTextEditor;
             if (active && active.document.uri.toString() === docKey) {
                 updateDecorations(active);
-            } else {
-                context.workspaceState.update("State", state.toJson());
             }
+            void persistState();
         }),
         vscode.workspace.onWillRenameFiles(event => {
             event.files.forEach(file => {
                 state.changeFilename(file.oldUri.toString(), file.newUri.toString());
             });
             // Persist and refresh decorations for affected URIs
-            context.workspaceState.update("State", state.toJson());
             decorationsEmitter.fire(event.files.flatMap(f => [f.oldUri, f.newUri]));
+            void persistState();
+        }),
+        vscode.commands.registerCommand('code-review-progress-tracker.coverage.refresh', () => {
+            coverageView.refresh();
+        }),
+        vscode.commands.registerCommand('code-review-progress-tracker.coverage.ignore', async (item?: CoverageTreeItem) => {
+            await coverageView.ignore(item);
+        }),
+        vscode.commands.registerCommand('code-review-progress-tracker.coverage.include', async (item?: CoverageTreeItem) => {
+            await coverageView.unignore(item);
+        }),
+        vscode.commands.registerCommand('code-review-progress-tracker.coverage.clearIgnores', async () => {
+            await coverageView.clearIgnores();
         })
     );
 

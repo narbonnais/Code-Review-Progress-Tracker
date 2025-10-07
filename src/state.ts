@@ -1,6 +1,11 @@
 import * as vscode from 'vscode';
 
 type RangeMap = Map<string, vscode.Range[]>; // filename -> ranges
+export type IgnoredEntryType = 'file' | 'folder';
+export type IgnoredEntry = {
+    uri: string;
+    type: IgnoredEntryType;
+};
 
 export class State {
 
@@ -10,9 +15,15 @@ export class State {
         danger: new Map()
     };
     private fileReviewStatuses: { [key: string]: string } = {}; // filename -> status ('ok', 'warning', 'danger')
+    private ignoredEntries: Map<string, IgnoredEntryType> = new Map();
 
     private parseJsonToRanges(json: any): vscode.Range[] {
-        return json.map((range: [number, number]) => new vscode.Range(range[0], 0, range[1], 0));
+        if (!Array.isArray(json)) {
+            return [];
+        }
+        return json
+            .filter((range: unknown): range is [number, number] => Array.isArray(range) && range.length === 2)
+            .map((range) => new vscode.Range(range[0], 0, range[1], 0));
     }
 
     private rangeToJson(range: vscode.Range): [number, number] {
@@ -22,10 +33,23 @@ export class State {
     public loadFromJson(json: any): void {
         // ranges
         for (const key of Object.keys(this.files)) {
-            this.files[key] = new Map(Object.entries(json[`files_to_${key}`]).map(([k, v]) => [k, this.parseJsonToRanges(v)]));
+            const serialized = json?.[`files_to_${key}`] ?? {};
+            this.files[key] = new Map(
+                Object.entries(serialized).map(([k, v]) => [k, this.parseJsonToRanges(v)])
+            );
         }
         // file review statuses
         this.fileReviewStatuses = json['file_review_statuses'] || {};
+        // ignored entries
+        this.ignoredEntries.clear();
+        const ignored = json['ignored_entries'];
+        if (Array.isArray(ignored)) {
+            ignored.forEach((entry: IgnoredEntry) => {
+                if (entry?.uri && (entry.type === 'file' || entry.type === 'folder')) {
+                    this.ignoredEntries.set(entry.uri, entry.type);
+                }
+            });
+        }
     }
 
     public toJson(): any {
@@ -34,6 +58,7 @@ export class State {
             obj[`files_to_${key}`] = Object.fromEntries(Array.from(this.files[key].entries()).map(([k, v]) => [k, v.map(this.rangeToJson)]));
         }
         obj['file_review_statuses'] = this.fileReviewStatuses;
+        obj['ignored_entries'] = Array.from(this.ignoredEntries.entries()).map(([uri, type]) => ({ uri, type }));
         return obj;
     }
 
@@ -119,6 +144,12 @@ export class State {
         });
         this.fileReviewStatuses[newFilename] = this.fileReviewStatuses[oldFilename];
         delete this.fileReviewStatuses[oldFilename];
+
+        if (this.ignoredEntries.has(oldFilename)) {
+            const type = this.ignoredEntries.get(oldFilename)!;
+            this.ignoredEntries.delete(oldFilename);
+            this.ignoredEntries.set(newFilename, type);
+        }
     }
 
     // Set the file review status
@@ -138,6 +169,62 @@ export class State {
 
     public getFileReviewStatuses(): { [key: string]: string } {
         return this.fileReviewStatuses;
+    }
+
+    public getAllTrackedFileUris(): string[] {
+        const uris = new Set<string>();
+        Object.values(this.files).forEach(map => {
+            map.forEach((_ranges, key) => uris.add(key));
+        });
+        Object.keys(this.fileReviewStatuses).forEach(key => uris.add(key));
+        return Array.from(uris.values());
+    }
+
+    public getUnionedRangesForFile(filename: string): vscode.Range[] {
+        const collected: vscode.Range[] = [];
+        (['ok', 'warning', 'danger'] as const).forEach((key) => {
+            const ranges = this.files[key].get(filename);
+            if (ranges?.length) {
+                collected.push(...ranges);
+            }
+        });
+        return collected;
+    }
+
+    public ignoreEntry(uri: string, type: IgnoredEntryType): void {
+        this.ignoredEntries.set(uri, type);
+    }
+
+    public unignoreEntry(uri: string): void {
+        this.ignoredEntries.delete(uri);
+    }
+
+    public getIgnoredEntries(): IgnoredEntry[] {
+        return Array.from(this.ignoredEntries.entries()).map(([uri, type]) => ({ uri, type }));
+    }
+
+    public isIgnored(filename: string): boolean {
+        const targetUri = vscode.Uri.parse(filename);
+        for (const [ignoredUri, type] of this.ignoredEntries.entries()) {
+            const ignored = vscode.Uri.parse(ignoredUri);
+            if (targetUri.toString() === ignored.toString()) {
+                return true;
+            }
+            if (type === 'folder' && targetUri.scheme === ignored.scheme && targetUri.authority === ignored.authority) {
+                let ignoredPath = ignored.path;
+                if (!ignoredPath.endsWith('/')) {
+                    ignoredPath = `${ignoredPath}/`;
+                }
+                if (targetUri.path.startsWith(ignoredPath)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public clearIgnoredEntries(): void {
+        this.ignoredEntries.clear();
     }
 
     // Adjust all stored ranges for a file given a change's line delta

@@ -77,6 +77,26 @@
         "command": "code-review-progress-tracker.reviewedFileClear",
         "title": "Clear File Review Mark",
         "category": "Code Review Tracker"
+      },
+      {
+        "command": "code-review-progress-tracker.coverage.ignore",
+        "title": "Ignore in Coverage",
+        "category": "Code Review Tracker"
+      },
+      {
+        "command": "code-review-progress-tracker.coverage.include",
+        "title": "Include in Coverage",
+        "category": "Code Review Tracker"
+      },
+      {
+        "command": "code-review-progress-tracker.coverage.clearIgnores",
+        "title": "Reset Coverage Ignores",
+        "category": "Code Review Tracker"
+      },
+      {
+        "command": "code-review-progress-tracker.coverage.refresh",
+        "title": "Refresh Coverage",
+        "category": "Code Review Tracker"
       }
     ],
     "keybindings": [
@@ -136,6 +156,50 @@
         "mac": "cmd+alt+shift+0"
       }
     ]
+    ,
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codeReviewProgress",
+          "title": "Code Review",
+          "icon": "images/green-dark.svg"
+        }
+      ]
+    },
+    "views": {
+      "codeReviewProgress": [
+        {
+          "id": "codeReviewCoverage",
+          "name": "Review Coverage"
+        }
+      ]
+    },
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "code-review-progress-tracker.coverage.ignore",
+          "when": "view == codeReviewCoverage && (viewItem == coverageFile || viewItem == coverageFolder)",
+          "group": "inline"
+        },
+        {
+          "command": "code-review-progress-tracker.coverage.include",
+          "when": "view == codeReviewCoverage && (viewItem == coverageFileIgnored || viewItem == coverageFolderIgnored)",
+          "group": "inline"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "code-review-progress-tracker.coverage.refresh",
+          "when": "view == codeReviewCoverage",
+          "group": "navigation@10"
+        },
+        {
+          "command": "code-review-progress-tracker.coverage.clearIgnores",
+          "when": "view == codeReviewCoverage",
+          "group": "navigation@90"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
