@@ -34,6 +34,13 @@ export class CoverageView {
             showCollapseAll: true
         });
         this.context.subscriptions.push(this.treeView);
+        this.context.subscriptions.push(
+            this.treeView.onDidChangeVisibility(event => {
+                if (event.visible && this.lastRevealTarget) {
+                    void this.revealFile(this.lastRevealTarget, true);
+                }
+            })
+        );
     }
 
     refresh(): void {
@@ -117,12 +124,15 @@ export class CoverageView {
         return undefined;
     }
 
-    async revealFile(uri: vscode.Uri | undefined): Promise<void> {
+    async revealFile(uri: vscode.Uri | undefined, forceReveal = false): Promise<void> {
         if (!uri) {
             this.lastRevealTarget = undefined;
             return;
         }
         this.lastRevealTarget = uri;
+        if (!forceReveal && !this.treeView.visible) {
+            return;
+        }
         const item = await this.provider.getItemForUri(uri);
         if (!item) {
             return;
