@@ -41,12 +41,41 @@ export function activate(context: vscode.ExtensionContext) {
     // Register a single FileDecorationProvider driven by an event emitter
     const fileDecorationProvider: vscode.FileDecorationProvider = {
         onDidChangeFileDecorations: decorationsEmitter.event,
-        provideFileDecoration: (uri: vscode.Uri) => {
+        provideFileDecoration: async (uri: vscode.Uri) => {
             const key = uri.toString();
             const status = state.getFileReviewStatus(key);
-            if (status) {
-                const fileDecoration = config.getFileExplorerDecoration(status);
-                return fileDecoration;
+            const directIgnore = state.getDirectIgnoredType(key);
+            const ignored = state.isIgnored(key);
+            let stat: vscode.FileStat | undefined;
+            try {
+                stat = await vscode.workspace.fs.stat(uri);
+            } catch {
+                stat = undefined;
+            }
+            const isDirectory = stat ? (stat.type & vscode.FileType.Directory) !== 0 : false;
+
+            if (status && status !== 'clear') {
+                return config.getFileExplorerDecoration(status);
+            }
+
+            if (!isDirectory && (directIgnore === 'file' || (ignored && status !== 'clear'))) {
+                return new vscode.FileDecoration('⊘', 'Ignored from review scope', new vscode.ThemeColor('editorInfo.foreground'));
+            }
+
+            if (isDirectory) {
+                if (directIgnore === 'folder') {
+                    return new vscode.FileDecoration('⊘', 'Ignored folder in review scope', new vscode.ThemeColor('editorInfo.foreground'));
+                }
+                if (ignored) {
+                    return new vscode.FileDecoration('⊘', 'Ignored by parent scope', new vscode.ThemeColor('editorInfo.foreground'));
+                }
+                if (state.hasTrackedDescendants(key)) {
+                    return new vscode.FileDecoration('R', 'Contains review scope items', undefined);
+                }
+            } else {
+                if (status === 'clear' || state.isTracked(key)) {
+                    return new vscode.FileDecoration('R', 'In review scope', undefined);
+                }
             }
         }
     };
@@ -192,11 +221,25 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('code-review-progress-tracker.coverage.refresh', () => {
             coverageView.refresh();
         }),
-        vscode.commands.registerCommand('code-review-progress-tracker.coverage.ignore', async (item?: CoverageTreeItem) => {
-            await coverageView.ignore(item);
+        vscode.commands.registerCommand('code-review-progress-tracker.scope.add', async (item?: CoverageTreeItem | vscode.Uri, selection?: (CoverageTreeItem | vscode.Uri)[]) => {
+            await coverageView.addToScope(item, selection);
+            decorationsEmitter.fire(undefined);
         }),
-        vscode.commands.registerCommand('code-review-progress-tracker.coverage.include', async (item?: CoverageTreeItem) => {
-            await coverageView.unignore(item);
+        vscode.commands.registerCommand('code-review-progress-tracker.scope.remove', async (item?: CoverageTreeItem | vscode.Uri, selection?: (CoverageTreeItem | vscode.Uri)[]) => {
+            await coverageView.removeFromScope(item, selection);
+            decorationsEmitter.fire(undefined);
+        }),
+        vscode.commands.registerCommand('code-review-progress-tracker.scope.ignore', async (item?: CoverageTreeItem | vscode.Uri, selection?: (CoverageTreeItem | vscode.Uri)[]) => {
+            await coverageView.ignore(item, selection);
+            decorationsEmitter.fire(undefined);
+        }),
+        vscode.commands.registerCommand('code-review-progress-tracker.coverage.ignore', async (item?: CoverageTreeItem | vscode.Uri, selection?: (CoverageTreeItem | vscode.Uri)[]) => {
+            await coverageView.ignore(item, selection);
+            decorationsEmitter.fire(undefined);
+        }),
+        vscode.commands.registerCommand('code-review-progress-tracker.coverage.include', async (item?: CoverageTreeItem | vscode.Uri, selection?: (CoverageTreeItem | vscode.Uri)[]) => {
+            await coverageView.unignore(item, selection);
+            decorationsEmitter.fire(undefined);
         }),
         vscode.commands.registerCommand('code-review-progress-tracker.coverage.clearIgnores', async () => {
             await coverageView.clearIgnores();

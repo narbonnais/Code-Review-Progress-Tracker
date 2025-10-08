@@ -1,3 +1,4 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { State, IgnoredEntryType } from './state';
 
@@ -23,6 +24,7 @@ export class CoverageView {
     private readonly provider: CoverageTreeDataProvider;
     private readonly treeView: vscode.TreeView<CoverageTreeItem>;
     private lastRevealTarget: vscode.Uri | undefined;
+    private suppressSelectionReveal = false;
 
     constructor(
         private readonly context: vscode.ExtensionContext,
@@ -41,6 +43,11 @@ export class CoverageView {
                 }
             })
         );
+        this.context.subscriptions.push(
+            this.treeView.onDidChangeSelection(event => {
+                void this.handleTreeSelectionChange(event);
+            })
+        );
     }
 
     refresh(): void {
@@ -54,26 +61,136 @@ export class CoverageView {
         return this.provider.getSummary();
     }
 
-    async ignore(item?: CoverageTreeItem): Promise<void> {
-        const target = this.resolveTarget(item);
-        if (!target?.node.uri) {
+    async addToScope(primary?: CoverageTreeItem | vscode.Uri, selection?: (CoverageTreeItem | vscode.Uri)[]): Promise<void> {
+        const entries = await this.resolveEntries(primary, selection);
+        if (!entries.length) {
+            const target = this.resolveTarget(this.asCoverageTreeItem(primary));
+            if (!target?.node.uri) {
+                return;
+            }
+            const type = this.nodeTypeToIgnoredType(target.node.type);
+            if (!type) {
+                return;
+            }
+            entries.push({ uri: target.node.uri, type });
+        }
+        let modified = false;
+        for (const entry of entries) {
+            if (entry.type === 'folder') {
+                if (this.state.unignoreEntry(entry.uri.toString())) {
+                    modified = true;
+                }
+                const files = await this.collectFolderFiles(entry.uri);
+                for (const fileUri of files) {
+                    if (this.state.ensureTracked(fileUri.toString())) {
+                        modified = true;
+                    }
+                    if (this.state.unignoreEntry(fileUri.toString())) {
+                        modified = true;
+                    }
+                }
+            } else {
+                if (this.state.ensureTracked(entry.uri.toString())) {
+                    modified = true;
+                }
+                if (this.state.unignoreEntry(entry.uri.toString())) {
+                    modified = true;
+                }
+            }
+        }
+        if (!modified) {
             return;
         }
-        const type = target.node.type === 'file' ? 'file' : target.node.type === 'folder' ? 'folder' : undefined;
-        if (!type) {
-            return;
-        }
-        this.state.ignoreEntry(target.node.uri.toString(), type);
         await this.persist();
         this.refresh();
     }
 
-    async unignore(item?: CoverageTreeItem): Promise<void> {
-        const target = this.resolveTarget(item);
-        if (!target?.node.uri) {
+    async removeFromScope(primary?: CoverageTreeItem | vscode.Uri, selection?: (CoverageTreeItem | vscode.Uri)[]): Promise<void> {
+        const entries = await this.resolveEntries(primary, selection);
+        if (!entries.length) {
+            const target = this.resolveTarget(this.asCoverageTreeItem(primary));
+            if (!target?.node.uri) {
+                return;
+            }
+            const type = this.nodeTypeToIgnoredType(target.node.type);
+            if (!type) {
+                return;
+            }
+            entries.push({ uri: target.node.uri, type });
+        }
+        let modified = false;
+        for (const entry of entries) {
+            if (entry.type === 'folder') {
+                const tracked = this.state.getTrackedUrisUnder(entry.uri.toString());
+                for (const trackedUri of tracked) {
+                    if (this.state.removeTracked(trackedUri)) {
+                        modified = true;
+                    }
+                }
+                if (this.state.unignoreEntry(entry.uri.toString())) {
+                    modified = true;
+                }
+            } else {
+                if (this.state.removeTracked(entry.uri.toString())) {
+                    modified = true;
+                }
+            }
+        }
+        if (!modified) {
             return;
         }
-        this.state.unignoreEntry(target.node.uri.toString());
+        await this.persist();
+        this.refresh();
+    }
+
+    async ignore(primary?: CoverageTreeItem | vscode.Uri, selection?: (CoverageTreeItem | vscode.Uri)[]): Promise<void> {
+        const entries = await this.resolveEntries(primary, selection);
+        if (!entries.length) {
+            const target = this.resolveTarget(this.asCoverageTreeItem(primary));
+            if (!target?.node.uri) {
+                return;
+            }
+            const type = this.nodeTypeToIgnoredType(target.node.type);
+            if (!type) {
+                return;
+            }
+            entries.push({ uri: target.node.uri, type });
+        }
+        let modified = false;
+        for (const entry of entries) {
+            if (this.state.ignoreEntry(entry.uri.toString(), entry.type)) {
+                modified = true;
+            }
+        }
+        if (!modified) {
+            return;
+        }
+        await this.persist();
+        this.refresh();
+    }
+
+    async unignore(primary?: CoverageTreeItem | vscode.Uri, selection?: (CoverageTreeItem | vscode.Uri)[]): Promise<void> {
+        const entries = await this.resolveEntries(primary, selection);
+        if (!entries.length) {
+            const target = this.resolveTarget(this.asCoverageTreeItem(primary));
+            if (!target?.node.uri) {
+                return;
+            }
+            const type = this.nodeTypeToIgnoredType(target.node.type);
+            if (!type) {
+                return;
+            }
+            entries.push({ uri: target.node.uri, type });
+        }
+        let modified = false;
+        for (const entry of entries) {
+            if (this.state.unignoreEntry(entry.uri.toString())) {
+                modified = true;
+            }
+        }
+        if (!modified) {
+            return;
+        }
         await this.persist();
         this.refresh();
     }
@@ -133,14 +250,147 @@ export class CoverageView {
         if (!forceReveal && !this.treeView.visible) {
             return;
         }
-        const item = await this.provider.getItemForUri(uri);
-        if (!item) {
+        this.suppressSelectionReveal = true;
+        try {
+            const item = await this.provider.getItemForUri(uri);
+            if (!item) {
+                return;
+            }
+            try {
+                await this.treeView.reveal(item, { select: true, focus: false, expand: true });
+            } catch {
+                // Tree view might not be visible; ignore reveal errors
+            }
+        } finally {
+            this.suppressSelectionReveal = false;
+        }
+    }
+
+    private asCoverageTreeItem(value: CoverageTreeItem | vscode.Uri | undefined): CoverageTreeItem | undefined {
+        if (!value) {
+            return undefined;
+        }
+        if (value instanceof CoverageTreeItem) {
+            return value;
+        }
+        return undefined;
+    }
+
+    private async resolveEntries(
+        primary?: CoverageTreeItem | vscode.Uri,
+        selection?: (CoverageTreeItem | vscode.Uri)[]
+    ): Promise<Array<{ uri: vscode.Uri; type: IgnoredEntryType }>> {
+        const candidates: Array<CoverageTreeItem | vscode.Uri> = [];
+
+        if (Array.isArray(selection) && selection.length > 0) {
+            candidates.push(...selection);
+        }
+        if (primary) {
+            candidates.push(primary);
+        }
+
+        const entries: Array<{ uri: vscode.Uri; type: IgnoredEntryType }> = [];
+        for (const candidate of candidates) {
+            const entry = await this.resolveEntry(candidate);
+            if (!entry) {
+                continue;
+            }
+            if (!entries.some(existing => existing.uri.toString() === entry.uri.toString())) {
+                entries.push(entry);
+            }
+        }
+        return entries;
+    }
+
+    private async resolveEntry(candidate: CoverageTreeItem | vscode.Uri): Promise<{ uri: vscode.Uri; type: IgnoredEntryType } | undefined> {
+        if (candidate instanceof CoverageTreeItem) {
+            const type = this.nodeTypeToIgnoredType(candidate.node.type);
+            if (!type || !candidate.node.uri) {
+                return undefined;
+            }
+            return { uri: candidate.node.uri, type };
+        }
+        return this.resolveEntryFromUri(candidate);
+    }
+
+    private async resolveEntryFromUri(uri: vscode.Uri): Promise<{ uri: vscode.Uri; type: IgnoredEntryType } | undefined> {
+        const type = await this.determineUriType(uri);
+        if (!type) {
+            return undefined;
+        }
+        return { uri, type };
+    }
+
+    private nodeTypeToIgnoredType(nodeType: CoverageNodeType): IgnoredEntryType | undefined {
+        if (nodeType === 'file') {
+            return 'file';
+        }
+        if (nodeType === 'folder') {
+            return 'folder';
+        }
+        return undefined;
+    }
+
+    private async determineUriType(uri: vscode.Uri): Promise<IgnoredEntryType | undefined> {
+        try {
+            const stat = await vscode.workspace.fs.stat(uri);
+            if ((stat.type & vscode.FileType.Directory) !== 0) {
+                return 'folder';
+            }
+            return 'file';
+        } catch {
+            return 'file';
+        }
+    }
+
+    private async collectFolderFiles(folderUri: vscode.Uri): Promise<vscode.Uri[]> {
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(folderUri);
+        if (!workspaceFolder) {
+            return [];
+        }
+        const rootPath = workspaceFolder.uri.fsPath;
+        const folderPath = folderUri.fsPath;
+        let relativePath = path.relative(rootPath, folderPath);
+        if (relativePath && relativePath.startsWith('..')) {
+            return [];
+        }
+        if (!relativePath || relativePath === '.') {
+            relativePath = '';
+        }
+        const pattern = relativePath
+            ? new vscode.RelativePattern(workspaceFolder, path.posix.join(this.toPosix(relativePath), '**/*'))
+            : new vscode.RelativePattern(workspaceFolder, '**/*');
+        const files = await vscode.workspace.findFiles(pattern);
+        return files.filter(file => file.scheme === folderUri.scheme && file.authority === folderUri.authority);
+    }
+
+    private toPosix(input: string): string {
+        return input.split(path.sep).join(path.posix.sep);
+    }
+
+    private async handleTreeSelectionChange(event: vscode.TreeViewSelectionChangeEvent<CoverageTreeItem>): Promise<void> {
+        if (this.suppressSelectionReveal) {
+            return;
+        }
+        if (!event.selection || event.selection.length === 0) {
+            return;
+        }
+        const target = event.selection[0];
+        if (!target?.node?.uri || target.node.type !== 'file') {
+            if (target?.node?.uri) {
+                this.lastRevealTarget = target.node.uri;
+            }
+            return;
+        }
+        this.lastRevealTarget = target.node.uri;
+        const active = vscode.window.activeTextEditor;
+        if (active && active.document.uri.toString() === target.node.uri.toString()) {
             return;
         }
         try {
-            await this.treeView.reveal(item, { select: true, focus: false, expand: true });
+            await vscode.window.showTextDocument(target.node.uri, { preserveFocus: false, preview: false });
         } catch {
-            // Tree view might not be visible; ignore reveal errors
+            // Opening the document failed; ignore so the tree remains responsive
         }
     }
 }

@@ -191,16 +191,25 @@ export class State {
         return collected;
     }
 
-    public ignoreEntry(uri: string, type: IgnoredEntryType): void {
+    public ignoreEntry(uri: string, type: IgnoredEntryType): boolean {
+        const existing = this.ignoredEntries.get(uri);
+        if (existing === type) {
+            return false;
+        }
         this.ignoredEntries.set(uri, type);
+        return true;
     }
 
-    public unignoreEntry(uri: string): void {
-        this.ignoredEntries.delete(uri);
+    public unignoreEntry(uri: string): boolean {
+        return this.ignoredEntries.delete(uri);
     }
 
     public getIgnoredEntries(): IgnoredEntry[] {
         return Array.from(this.ignoredEntries.entries()).map(([uri, type]) => ({ uri, type }));
+    }
+
+    public getDirectIgnoredType(uri: string): IgnoredEntryType | undefined {
+        return this.ignoredEntries.get(uri);
     }
 
     public isIgnored(filename: string): boolean {
@@ -225,6 +234,74 @@ export class State {
 
     public clearIgnoredEntries(): void {
         this.ignoredEntries.clear();
+    }
+
+    public isTracked(uri: string): boolean {
+        if (this.fileReviewStatuses[uri] !== undefined) {
+            return true;
+        }
+        for (const map of Object.values(this.files)) {
+            if (map.has(uri)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public ensureTracked(uri: string): boolean {
+        if (this.isTracked(uri)) {
+            return false;
+        }
+        this.fileReviewStatuses[uri] = 'clear';
+        return true;
+    }
+
+    public removeTracked(uri: string): boolean {
+        let removed = false;
+        if (this.fileReviewStatuses[uri] !== undefined) {
+            delete this.fileReviewStatuses[uri];
+            removed = true;
+        }
+        for (const map of Object.values(this.files)) {
+            if (map.delete(uri)) {
+                removed = true;
+            }
+        }
+        if (this.ignoredEntries.delete(uri)) {
+            removed = true;
+        }
+        return removed;
+    }
+
+    public getTrackedUrisUnder(folderUri: string): string[] {
+        const targetUri = vscode.Uri.parse(folderUri);
+        let targetPath = targetUri.path;
+        if (!targetPath.endsWith('/')) {
+            targetPath = `${targetPath}/`;
+        }
+        return this.getAllTrackedFileUris().filter(candidate => {
+            const candidateUri = vscode.Uri.parse(candidate);
+            return candidateUri.scheme === targetUri.scheme
+                && candidateUri.authority === targetUri.authority
+                && candidateUri.path.startsWith(targetPath);
+        });
+    }
+
+    public hasTrackedDescendants(folderUri: string): boolean {
+        const targetUri = vscode.Uri.parse(folderUri);
+        let targetPath = targetUri.path;
+        if (!targetPath.endsWith('/')) {
+            targetPath = `${targetPath}/`;
+        }
+        for (const candidate of this.getAllTrackedFileUris()) {
+            const candidateUri = vscode.Uri.parse(candidate);
+            if (candidateUri.scheme === targetUri.scheme
+                && candidateUri.authority === targetUri.authority
+                && candidateUri.path.startsWith(targetPath)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Adjust all stored ranges for a file given a change's line delta

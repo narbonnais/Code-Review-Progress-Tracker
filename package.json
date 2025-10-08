@@ -6,7 +6,7 @@
     "type": "git",
     "url": "https://github.com/narbonnais/Code-Review-Progress-Tracker.git"
   },
-  "version": "1.1.2",
+  "version": "1.2.0",
   "engines": {
     "vscode": "^1.84.0"
   },
@@ -23,7 +23,10 @@
     "onCommand:code-review-progress-tracker.reviewedFileWarning",
     "onCommand:code-review-progress-tracker.reviewedFileDanger",
     "onCommand:code-review-progress-tracker.reviewedFileOutOfScope",
-    "onCommand:code-review-progress-tracker.reviewedFileClear"
+    "onCommand:code-review-progress-tracker.reviewedFileClear",
+    "onCommand:code-review-progress-tracker.scope.add",
+    "onCommand:code-review-progress-tracker.scope.remove",
+    "onCommand:code-review-progress-tracker.scope.ignore"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -86,6 +89,21 @@
       {
         "command": "code-review-progress-tracker.coverage.include",
         "title": "Include in Coverage",
+        "category": "Code Review Tracker"
+      },
+      {
+        "command": "code-review-progress-tracker.scope.add",
+        "title": "Add to Review Scope",
+        "category": "Code Review Tracker"
+      },
+      {
+        "command": "code-review-progress-tracker.scope.remove",
+        "title": "Remove from Review Scope",
+        "category": "Code Review Tracker"
+      },
+      {
+        "command": "code-review-progress-tracker.scope.ignore",
+        "title": "Ignore from Review Scope",
         "category": "Code Review Tracker"
       },
       {
@@ -174,6 +192,23 @@
       ]
     },
     "menus": {
+      "explorer/context": [
+        {
+          "command": "code-review-progress-tracker.scope.add",
+          "when": "explorerViewletFocus && resourceScheme != git",
+          "group": "codeReviewProgress@1"
+        },
+        {
+          "command": "code-review-progress-tracker.scope.remove",
+          "when": "explorerViewletFocus && resourceScheme != git",
+          "group": "codeReviewProgress@2"
+        },
+        {
+          "command": "code-review-progress-tracker.scope.ignore",
+          "when": "explorerViewletFocus && resourceScheme != git",
+          "group": "codeReviewProgress@3"
+        }
+      ],
       "view/item/context": [
         {
           "command": "code-review-progress-tracker.coverage.ignore",
@@ -184,6 +219,16 @@
           "command": "code-review-progress-tracker.coverage.include",
           "when": "view == codeReviewCoverage && (viewItem == coverageFileIgnored || viewItem == coverageFolderIgnored)",
           "group": "inline"
+        },
+        {
+          "command": "code-review-progress-tracker.scope.add",
+          "when": "view == codeReviewCoverage && (viewItem == coverageFileExcluded || viewItem == coverageFolderExcluded)",
+          "group": "inline@20"
+        },
+        {
+          "command": "code-review-progress-tracker.scope.remove",
+          "when": "view == codeReviewCoverage && (viewItem == coverageFile || viewItem == coverageFolder || viewItem == coverageFileIgnored || viewItem == coverageFolderIgnored || viewItem == coverageFileExcluded || viewItem == coverageFolderExcluded)",
+          "group": "inline@30"
         }
       ],
       "view/title": [

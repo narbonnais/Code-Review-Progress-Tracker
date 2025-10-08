@@ -12,6 +12,8 @@ Code Review Progress Tracker is a Visual Studio Code extension designed to help 
 - **Clear Marks**: Remove review marks from a section or clear all marks in a file.
 - **Persistent State**: Review marks are saved and restored across VS Code sessions.
 - **Explorer Badges**: Add visual badges (✓, ?, !, ⊘) to files in the explorer.
+- **Scope Controls**: Right-click files or folders to add, remove, or ignore them in the review scope.
+- **Coverage Navigation**: Click any file in the Review Coverage tree to open it instantly in the editor.
 - **Live Updates**: Line highlights adjust when you edit the document.
 
 ## Installation
@@ -25,30 +27,48 @@ To install the Code Review Progress Tracker, download a [release](https://github
 
 ## Usage
 
-After installation, you can use the following commands:
+After installation, open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and run any of the commands below, or bind them to shortcuts.
 
-- `code-review-progress-tracker.reviewedOk`: Mark a section as OK.
-- `code-review-progress-tracker.reviewedWarning`: Mark a section with a warning.
-- `code-review-progress-tracker.reviewedDanger`: Mark a section as dangerous.
-- `code-review-progress-tracker.reviewedClear`: Clear review mark from a section.
-- `code-review-progress-tracker.reviewedClearAll`: Clear all review marks from the current file.
-- `code-review-progress-tracker.reviewedFileOk`: Add a ✓ marker to the file in the explorer.
-- `code-review-progress-tracker.reviewedFileWarning`: Add a ? marker to the file in the explorer.
-- `code-review-progress-tracker.reviewedFileDanger`: Add a ✗ marker to the file in the explorer.
-- `code-review-progress-tracker.reviewedFileOutOfScope`: Add a ⊘ marker to the file in the explorer.
-- `code-review-progress-tracker.reviewedFileClear`: Remove the marker from the file in the explorer.
+### Range review commands
 
-To use these commands, select the code you want to mark, open the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`), and type the command. It is also recommended to bind essential commands to keyboard shortcuts.
+- `code-review-progress-tracker.reviewedOk`: Highlight selection as OK.
+- `code-review-progress-tracker.reviewedWarning`: Highlight selection with a warning badge.
+- `code-review-progress-tracker.reviewedDanger`: Highlight selection as requiring changes.
+- `code-review-progress-tracker.reviewedClear`: Clear highlights from the selection.
+- `code-review-progress-tracker.reviewedClearAll`: Clear all highlights in the active file.
+
+### File badge commands
+
+- `code-review-progress-tracker.reviewedFileOk`: Add a ✓ badge to the active file.
+- `code-review-progress-tracker.reviewedFileWarning`: Add a ? badge to the active file.
+- `code-review-progress-tracker.reviewedFileDanger`: Add a ! badge to the active file.
+- `code-review-progress-tracker.reviewedFileOutOfScope`: Mark the active file as out of scope (⊘).
+- `code-review-progress-tracker.reviewedFileClear`: Remove any badge from the active file.
+
+### Review scope commands
+
+- `code-review-progress-tracker.scope.add`: Add selected files or folders to the review scope (also unignores them).
+- `code-review-progress-tracker.scope.remove`: Remove selected files or folders from the review scope entirely.
+- `code-review-progress-tracker.scope.ignore`: Leave items in scope but ignore them in coverage totals.
+
+### Coverage view commands
+
+- `code-review-progress-tracker.coverage.include`: Re-include an ignored entry.
+- `code-review-progress-tracker.coverage.ignore`: Ignore the selected entry in totals.
+- `code-review-progress-tracker.coverage.clearIgnores`: Reset all ignored entries.
+- `code-review-progress-tracker.coverage.refresh`: Recompute the coverage tree.
+
+Right-click files or folders in the explorer or Review Coverage tree to access the scope commands. Clicking a file in the Review Coverage tree automatically opens it in the editor so you can continue reviewing without leaving the view.
 
 ### Default Keybindings
 
 These can be changed in Keyboard Shortcuts, but the extension ships with:
 
-- `Mark Reviewed (OK)`: `Ctrl+Alt+1` (`Cmd+Alt+1` on macOS)
-- `Mark Reviewed (Warning)`: `Ctrl+Alt+2` (`Cmd+Alt+2` macOS)
-- `Mark Reviewed (Danger)`: `Ctrl+Alt+3` (`Cmd+Alt+3` macOS)
-- `Clear Review Mark`: `Ctrl+Alt+0` (`Cmd+Alt+0` macOS)
-- `Clear All Review Marks`: `Ctrl+Alt+Backspace` (`Cmd+Alt+Backspace` macOS)
+- `Mark Reviewed (OK)`: `Ctrl+Alt+1` (`Cmd+Option+1` on on macOS)
+- `Mark Reviewed (Warning)`: `Ctrl+Alt+2` (`Cmd+Option+2` on macOS)
+- `Mark Reviewed (Danger)`: `Ctrl+Alt+3` (`Cmd+Option+3` on macOS)
+- `Clear Review Mark`: `Ctrl+Alt+0` (`Cmd+Option+0` on macOS)
+- `Clear All Review Marks`: `Ctrl+Alt+Backspace` (`Cmd+Option+Backspace` on macOS)
 - File badges OK/Warning/Danger/Out of scope: `Ctrl+Alt+Shift+1/2/3/4` (use `Cmd` on macOS)
 - Clear File Badge: `Ctrl+Alt+Shift+0` (use `Cmd` on macOS)
 
@@ -67,25 +87,7 @@ There are no extension settings at this time.
 
 ## Release Notes
 
-### 1.0.2
-
-- Added file markers to the explorer.
-
-### 1.0.3
-
-- Single explorer decoration provider with event-driven updates.
-- Persist file-level review status changes and renames.
-- Live adjustment of line highlights on document edits.
-- Theme-aware explorer badge colors.
-- Lazy activation and default keybindings.
-
-### 1.0.1
-
-- Fixed a bug where the extension would not work.
-
-### 1.0.0
-
-- Initial release of Code Review Progress Tracker.
+See [CHANGELOG.md](./CHANGELOG.md) for the complete release history.
 
 ## Contributing
 
